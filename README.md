@@ -2,11 +2,11 @@
 
 A live price widget for the [Noctalia](https://noctalia.dev) shell (Hyprland/Quickshell). Shows the price and change of
 a cryptocurrency or stock right in the bar, defaulting to Monero (XMR), with a dropdown chart panel and a search bar to
-switch to any of 33 coins or 52 stocks.
+switch to any of 33 coins or 52 stocks (most have logos; the rest show their ticker).
 
 ## Features
 
-- **Bar widget**: the asset's logo, its price, and a green/red ▲/▼ percentage change.
+- **Bar widget**: the asset's logo (or ticker), its price, and a green/red ▲/▼ percentage change.
 - **Click for a dropdown chart panel**:
   - Chart with a 24h / 7d / 30d timeframe toggle; hover it to see the price at that point
   - "Updated Ns ago" line that turns red if a poll fails
@@ -101,15 +101,17 @@ For a stock, confirm the Yahoo ticker returns data:
 curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/chart/<TICKER>?range=1d&interval=5m"
 ```
 
-Then add an entry (`id`, `symbol`, `name`, `base`, `color`, plus `kind = "stock"` for stocks) and drop a
-`<symbol lowercase>.png` logo into `assets/logos/`.
+Then add an entry (`id`, `symbol`, `name`, `base`, `color`, plus `kind = "stock"` for stocks). Optionally drop an
+open-licensed `<symbol lowercase>.png` logo into `assets/logos/` and record its source in `assets/logos/SOURCES.md`.
 
 ## Credits
 
-Coin logos in `assets/logos/` come from the CC0 [cryptocurrency-icons](https://github.com/spothq/cryptocurrency-icons)
-set and CoinCap's icon CDN (the Solana logo is redrawn in purple). Stock logos come from Financial Modeling Prep's
-image service. All logos are trademarks of their respective owners and are used only to identify the assets.
+Logos in `assets/logos/` come from open-licensed sets: [cryptocurrency-icons](https://github.com/spothq/cryptocurrency-icons)
+(CC0), [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0) and
+[Trust Wallet assets](https://github.com/trustwallet/assets) (MIT). See [assets/logos/SOURCES.md](assets/logos/SOURCES.md)
+for the source of every file. Logos are trademarks of their owners and are used only to identify the asset. Assets
+without a logo file show their ticker instead.
 
 ## License
 
-MIT
+The code is MIT-licensed (see [LICENSE](LICENSE)). Logos keep their own licenses, listed in `assets/logos/SOURCES.md`.

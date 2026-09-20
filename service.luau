@@ -59,13 +59,14 @@ local range = "24h"
 local lastPrice = nil
 
 local function publishCoinMeta()
-  local coin = findCoin(coinId) or { id = coinId, symbol = string.upper(coinId), name = coinId, glyph = "" }
+  local coin = findCoin(coinId) or { id = coinId, symbol = string.upper(coinId), name = coinId }
   noctalia.state.set("coinId", coin.id)
   noctalia.state.set("defaultCoin", defaultCoin)
   noctalia.state.set("coinSymbol", coin.symbol)
   noctalia.state.set("coinName", coin.name)
-  noctalia.state.set("coinGlyph", coin.glyph)
-  noctalia.state.set("coinLogo", "assets/logos/" .. string.lower(coin.symbol) .. ".png")
+  -- Not every asset has a logo file; the bar and panel show the ticker instead.
+  local logo = "assets/logos/" .. string.lower(coin.symbol) .. ".png"
+  noctalia.state.set("coinLogo", noctalia.fileExists(logo) and logo or "")
   noctalia.state.set("coinColor", coin.color or "primary")
 end
 
