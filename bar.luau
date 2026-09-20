@@ -32,12 +32,12 @@ end
 local function render()
   local label
   local changeLabel, changeColor
-  if price == nil then
+  if type(price) ~= "number" then
     label = hasError and "--" or "…"
     barWidget.setTooltip(hasError and "Price unavailable" or "Fetching price…")
   else
     label = formatPrice(price, currency)
-    if showChange and change ~= nil then
+    if showChange and type(change) == "number" then
       local arrow = change >= 0 and "▲" or "▼"
       changeLabel = string.format("%s%.1f%%", arrow, math.abs(change))
       changeColor = change >= 0 and "#3DDC84" or "#FF5252"

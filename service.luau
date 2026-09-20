@@ -372,6 +372,13 @@ function onIpc(event, payload)
     noctalia.state.set("defaultCoin", defaultCoin)
   elseif event == "set_coin" and payload and payload ~= "" then
     coinId = payload
+    -- Drop the previous asset's numbers so the UI shows a loading state
+    -- instead of the old price under the new asset's name.
+    lastPrice = nil
+    noctalia.state.set("price", false)
+    noctalia.state.set("change", false)
+    noctalia.state.set("history", {})
+    noctalia.state.set("historyPrices", {})
     fetchAll()
   end
 end

@@ -105,7 +105,7 @@ end
 local function render()
   local changeColor = "on_surface_variant"
   local changeText = "—"
-  if change ~= nil then
+  if type(change) == "number" then
     changeColor = change >= 0 and "success" or "error"
     changeText = string.format("%s%.2f%% · %s", change >= 0 and "▲ " or "▼ ", math.abs(change), range)
   end
@@ -160,7 +160,7 @@ local function render()
 
     ui.column({ gap = 2 }, {
       ui.label({
-        text = price and formatPrice(price, currency) or "…",
+        text = type(price) == "number" and formatPrice(price, currency) or "…",
         fontSize = 28,
         fontWeight = "bold",
         color = "on_surface",
