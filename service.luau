@@ -1,6 +1,6 @@
 --!nonstrict
--- Headless service: polls Kraken's public API for the selected coin's price
--- and a 24h price history, computes the 24h change from that history, and
+-- Headless service: polls Kraken (crypto) or Yahoo Finance (stocks) for the
+-- selected asset's price and history, computes the change, and
 -- publishes it all to the plugin's shared state. bar.luau and chart.luau
 -- watch it. The active coin defaults to Monero but can be switched at
 -- runtime from the chart panel's search bar (onIpc "set_coin"), independent
@@ -24,7 +24,26 @@ end
 
 local currency = noctalia.getConfig("currency") or "usd"
 local intervalSeconds = noctalia.getConfig("interval") or 30
-local coinId = noctalia.getConfig("coin") or "monero"
+-- The default asset: one saved from the panel's "Set as default" button (kept
+-- in the plugin data dir, since plugins can't write settings) wins over the
+-- `coin` setting.
+local function savedDefaultPath()
+  local dir = noctalia.pluginDataDir()
+  return dir and (dir .. "/default.json") or nil
+end
+
+local function loadDefaultCoin()
+  local path = savedDefaultPath()
+  local raw = path and noctalia.readFile(path)
+  local decoded = raw and noctalia.json.decode(raw)
+  if decoded and decoded.coin and findCoin(decoded.coin) then
+    return decoded.coin
+  end
+  return noctalia.getConfig("coin") or "monero"
+end
+
+local defaultCoin = loadDefaultCoin()
+local coinId = defaultCoin
 
 local REQUEST_HEADERS = { "Accept: application/json", "User-Agent: noctalia-monero-widget/1.0" }
 local MAX_HISTORY_POINTS = 60
@@ -42,6 +61,7 @@ local lastPrice = nil
 local function publishCoinMeta()
   local coin = findCoin(coinId) or { id = coinId, symbol = string.upper(coinId), name = coinId, glyph = "" }
   noctalia.state.set("coinId", coin.id)
+  noctalia.state.set("defaultCoin", defaultCoin)
   noctalia.state.set("coinSymbol", coin.symbol)
   noctalia.state.set("coinName", coin.name)
   noctalia.state.set("coinGlyph", coin.glyph)
@@ -61,6 +81,44 @@ end
 
 local function krakenPair(coin)
   return coin.base .. string.upper(currency)
+end
+
+-- Downsample closes (oldest first) to <= MAX_HISTORY_POINTS, publish them for
+-- the chart, and publish the change % against `baseline` (defaults to the
+-- first close).
+local function publishSeries(closes, baseline)
+  local step = math.max(1, math.ceil(#closes / MAX_HISTORY_POINTS))
+  local raw = {}
+  for i = #closes, 1, -step do
+    raw[#raw + 1] = closes[i]
+  end
+  for i = 1, math.floor(#raw / 2) do
+    raw[i], raw[#raw - i + 1] = raw[#raw - i + 1], raw[i]
+  end
+
+  local lo, hi = raw[1], raw[1]
+  for _, v in ipairs(raw) do
+    if v < lo then
+      lo = v
+    end
+    if v > hi then
+      hi = v
+    end
+  end
+
+  local span = hi - lo
+  local normalized = {}
+  for i, v in ipairs(raw) do
+    normalized[i] = span > 0 and (v - lo) / span or 0.5
+  end
+
+  noctalia.state.set("history", normalized)
+  noctalia.state.set("historyPrices", raw)
+
+  baseline = baseline or raw[1]
+  if lastPrice and baseline and baseline > 0 then
+    noctalia.state.set("change", (lastPrice - baseline) / baseline * 100)
+  end
 end
 
 local function fetchPrice()
@@ -157,36 +215,106 @@ local function fetchHistory()
       return
     end
 
-    local step = math.max(1, math.ceil(#candles / MAX_HISTORY_POINTS))
-    local raw = {}
-    for i = #candles, 1, -step do
-      raw[#raw + 1] = tonumber(candles[i][5]) -- close price
+    local closes = {}
+    for i = 1, #candles do
+      closes[i] = tonumber(candles[i][5]) -- close price
     end
-    for i = 1, math.floor(#raw / 2) do
-      raw[i], raw[#raw - i + 1] = raw[#raw - i + 1], raw[i]
+    publishSeries(closes)
+  end)
+end
+
+-- Stocks: Yahoo Finance's chart endpoint returns price, previous close and
+-- history in one call, quoted in USD for the US tickers in the list.
+local YAHOO_RANGES = {
+  ["24h"] = { range = "1d", interval = "5m" },
+  ["7d"] = { range = "5d", interval = "30m" },
+  ["30d"] = { range = "1mo", interval = "1d" },
+}
+local YAHOO_HEADERS = { "Accept: application/json", "User-Agent: Mozilla/5.0 (X11; Linux x86_64) HyprPrice/1.0" }
+
+local function doFetchStock(mult, quoteCurrency)
+  local coin = findCoin(coinId)
+  if not coin then
+    noctalia.state.set("error", true)
+    return
+  end
+
+  local requestCoin = coinId
+  local requestRange = range
+  local requestCurrency = currency
+  local r = YAHOO_RANGES[requestRange]
+  local url = "https://query1.finance.yahoo.com/v8/finance/chart/"
+    .. noctalia.string.urlEncode(coin.base)
+    .. "?range=" .. r.range .. "&interval=" .. r.interval
+
+  noctalia.http({ url = url, headers = YAHOO_HEADERS }, function(res)
+    if requestCoin ~= coinId or requestRange ~= range or requestCurrency ~= currency then
+      return -- superseded by a newer coin, range or currency switch
     end
 
-    local lo, hi = raw[1], raw[1]
-    for _, v in ipairs(raw) do
-      if v < lo then
-        lo = v
+    if not res.ok then
+      noctalia.log(`humblemane/hyprprice: stock request failed status={res.status}`)
+      noctalia.state.set("error", true)
+      return
+    end
+
+    local decoded = noctalia.json.decode(res.body)
+    local result = decoded and decoded.chart and decoded.chart.result and decoded.chart.result[1]
+    local meta = result and result.meta
+    local price = meta and tonumber(meta.regularMarketPrice)
+
+    if not price then
+      noctalia.log(`humblemane/hyprprice: unexpected stock payload: {string.sub(res.body, 1, 300)}`)
+      noctalia.state.set("error", true)
+      return
+    end
+
+    price = price * mult
+    lastPrice = price
+    noctalia.state.set("error", false)
+    noctalia.state.set("currency", quoteCurrency)
+    noctalia.state.set("price", price)
+    noctalia.state.set("updatedAt", tonumber(meta.regularMarketTime) or os.time())
+
+    local quote = result.indicators and result.indicators.quote and result.indicators.quote[1]
+    local closes = {}
+    for _, v in ipairs(quote and quote.close or {}) do
+      if type(v) == "number" then
+        closes[#closes + 1] = v * mult
       end
-      if v > hi then
-        hi = v
-      end
     end
-
-    local span = hi - lo
-    local normalized = {}
-    for i, v in ipairs(raw) do
-      normalized[i] = span > 0 and (v - lo) / span or 0.5
+    if #closes > 1 then
+      publishSeries(closes, meta.chartPreviousClose and tonumber(meta.chartPreviousClose) * mult or nil)
     end
+  end)
+end
 
-    noctalia.state.set("history", normalized)
-    noctalia.state.set("historyPrices", raw)
+-- Yahoo quotes stocks in USD. For EUR, convert with Kraken's EUR/USD rate,
+-- cached for 10 minutes; if the rate can't be fetched, fall back to USD.
+local usdToEur = nil
+local fxFetchedAt = 0
 
-    if lastPrice and raw[1] and raw[1] > 0 then
-      noctalia.state.set("change", (lastPrice - raw[1]) / raw[1] * 100)
+local function fetchStock()
+  if currency ~= "eur" or (usdToEur and os.time() - fxFetchedAt < 600) then
+    doFetchStock(currency == "eur" and usdToEur or 1, currency)
+    return
+  end
+
+  local requestCurrency = currency
+  noctalia.http({ url = "https://api.kraken.com/0/public/Ticker?pair=EURUSD", headers = REQUEST_HEADERS }, function(res)
+    if requestCurrency ~= currency then
+      return
+    end
+    local decoded = res.ok and noctalia.json.decode(res.body)
+    local ticker = decoded and decoded.result and firstValue(decoded.result)
+    local usdPerEur = ticker and ticker.c and tonumber(ticker.c[1])
+    if usdPerEur and usdPerEur > 0 then
+      usdToEur = 1 / usdPerEur
+      fxFetchedAt = os.time()
+      doFetchStock(usdToEur, "eur")
+    else
+      noctalia.log("humblemane/hyprprice: EUR/USD rate unavailable, showing USD")
+      doFetchStock(1, "usd")
     end
   end)
 end
@@ -194,8 +322,13 @@ end
 local function fetchAll()
   publishCoinMeta()
   noctalia.state.set("range", range)
-  fetchPrice()
-  fetchHistory()
+  local coin = findCoin(coinId)
+  if coin and coin.kind == "stock" then
+    fetchStock()
+  else
+    fetchPrice()
+    fetchHistory()
+  end
 end
 
 noctalia.setUpdateInterval(intervalSeconds * 1000)
@@ -208,7 +341,8 @@ end
 function onConfigChanged()
   currency = noctalia.getConfig("currency") or "usd"
   intervalSeconds = noctalia.getConfig("interval") or 30
-  coinId = noctalia.getConfig("coin") or "monero"
+  defaultCoin = loadDefaultCoin()
+  coinId = defaultCoin
   noctalia.setUpdateInterval(intervalSeconds * 1000)
   fetchAll()
 end
@@ -223,7 +357,19 @@ function onIpc(event, payload)
   elseif event == "set_range" and RANGES[payload] then
     range = payload
     noctalia.state.set("range", range)
-    fetchHistory()
+    local coin = findCoin(coinId)
+    if coin and coin.kind == "stock" then
+      fetchStock()
+    else
+      fetchHistory()
+    end
+  elseif event == "set_default" and payload and findCoin(payload) then
+    local path = savedDefaultPath()
+    if path then
+      noctalia.writeFile(path, noctalia.json.encode({ coin = payload }))
+    end
+    defaultCoin = payload
+    noctalia.state.set("defaultCoin", defaultCoin)
   elseif event == "set_coin" and payload and payload ~= "" then
     coinId = payload
     fetchAll()

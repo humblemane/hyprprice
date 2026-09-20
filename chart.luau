@@ -14,6 +14,7 @@ local coinId = noctalia.state.get("coinId") or "monero"
 local coinSymbol = noctalia.state.get("coinSymbol") or "XMR"
 local coinName = noctalia.state.get("coinName") or "Monero"
 local coinLogo = noctalia.state.get("coinLogo") or "assets/logos/xmr.png"
+local defaultCoin = noctalia.state.get("defaultCoin") or "monero"
 local coinColor = noctalia.state.get("coinColor") or "primary"
 local currency = noctalia.state.get("currency") or "usd"
 local price = noctalia.state.get("price")
@@ -65,7 +66,7 @@ local function searchCoins(query: string)
     return a.score > b.score
   end)
   local results = {}
-  for i = 1, math.min(6, #scored) do
+  for i = 1, #scored do
     results[i] = scored[i].coin
   end
   return results
@@ -78,6 +79,11 @@ local function selectCoin(id: string)
   searchInputGen += 1
   resultsGen += 1
   noctalia.runAsync({ "noctalia", "msg", "plugin", "humblemane/hyprprice:service", "all", "set_coin", id })
+end
+
+local function isStock()
+  local coin = findCoin(coinId)
+  return coin ~= nil and coin.kind == "stock"
 end
 
 local function agoText()
@@ -136,7 +142,8 @@ local function render()
   panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
     ui.row({ align = "center", justify = "space_between", gap = 8 }, {
       ui.row({ align = "center", gap = 8 }, {
-        ui.image({ path = coinLogo, width = 24, height = 24, fit = "contain" }),
+        coinLogo ~= "" and ui.image({ path = coinLogo, width = 24, height = 24, fit = "contain" })
+          or ui.label({ text = coinSymbol, fontSize = 12, fontWeight = "bold", color = coinColor }),
         ui.label({ text = coinName, fontSize = 16, fontWeight = "bold", color = "on_surface" }),
       }),
       ui.row({ gap = 4 }, {
@@ -182,18 +189,44 @@ local function render()
 
     ui.separator({}),
 
-    ui.column({ gap = 8, align = "stretch" }, {
-      ui.input({
-        key = `search-{searchInputGen}`,
-        placeholder = "Search coin (e.g. bitcoin, eth)…",
-        onChange = "onSearchChanged",
-      }),
-      ui.scroll({ key = `results-{resultsGen}`, gap = 2, height = 140, align = "stretch" }, resultRows),
+    ui.input({
+      key = `search-{searchInputGen}`,
+      placeholder = "Search coins & stocks…",
+      onChange = "onSearchChanged",
     }),
 
-    ui.button({ text = "Open on Kraken", variant = "outline", onClick = "onOpenExchange" }),
+    ui.scroll({
+      key = `results-{resultsGen}`,
+      flexGrow = 1,
+      minHeight = 90,
+      gap = 2,
+      align = "stretch",
+    }, resultRows),
+
+    ui.row({ gap = 8 }, {
+      ui.button({
+        glyph = coinId == defaultCoin and "star-filled" or "star",
+        text = coinId == defaultCoin and "Default" or "Set as default",
+        variant = "outline",
+        selected = coinId == defaultCoin,
+        flexGrow = 1,
+        onClick = "onSetDefaultClicked",
+      }),
+      ui.button({
+        text = isStock() and "Yahoo Finance" or "Kraken",
+        glyph = "external-link",
+        variant = "outline",
+        flexGrow = 1,
+        onClick = "onOpenExchange",
+      }),
+    }),
   }))
 end
+
+noctalia.state.watch("defaultCoin", function(value)
+  defaultCoin = value
+  render()
+end)
 
 noctalia.state.watch("coinId", function(value)
   coinId = value
@@ -302,9 +335,19 @@ end
 
 function onOpenExchange()
   local coin = findCoin(coinId)
+  if coin and coin.kind == "stock" then
+    noctalia.runAsync({ "xdg-open", "https://finance.yahoo.com/quote/" .. coin.base })
+    return
+  end
   local base = coin and coin.base or string.upper(coinId)
   local url = "https://pro.kraken.com/app/trade/" .. string.lower(base) .. "-" .. currency
   noctalia.runAsync({ "xdg-open", url })
+end
+
+function onSetDefaultClicked()
+  if coinId ~= defaultCoin then
+    noctalia.runAsync({ "noctalia", "msg", "plugin", "humblemane/hyprprice:service", "all", "set_default", coinId })
+  end
 end
 
 function onCloseClicked()

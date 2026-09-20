@@ -1,26 +1,23 @@
 # HyprPrice
 
-A live cryptocurrency price widget for the [Noctalia](https://noctalia.dev) shell (Hyprland/Quickshell). Shows a
-coin's price and 24h change right in the bar, defaulting to Monero (XMR), with a dropdown chart panel for a 24h
-sparkline and switching coins. Prices come from [Kraken's public API](https://docs.kraken.com/api/).
+A live price widget for the [Noctalia](https://noctalia.dev) shell (Hyprland/Quickshell). Shows the price and change of
+a cryptocurrency or stock right in the bar, defaulting to Monero (XMR), with a dropdown chart panel and a search bar to
+switch to any of 33 coins or 52 stocks.
 
 ## Features
 
-- **Bar widget**: current price and % change with the coin's logo.
+- **Bar widget**: the asset's logo, its price, and a green/red ▲/▼ percentage change.
 - **Click for a dropdown chart panel**:
-  - Sparkline built from Kraken OHLC candles, with a 24h / 7d / 30d timeframe toggle (resets to 24h on restart)
-  - Hover the chart to see the price at that point
+  - Chart with a 24h / 7d / 30d timeframe toggle; hover it to see the price at that point
   - "Updated Ns ago" line that turns red if a poll fails
-  - USD / EUR toggle button
+  - USD / EUR toggle (stock prices are converted using Kraken's EUR/USD rate)
   - Refresh button to poll immediately
-  - Search bar (fuzzy match) to switch to any coin in the curated list — updates the bar widget too
-  - "Open on Kraken" button for the active coin's trade page
-- Coin switches from the search bar are runtime-only; the widget always starts back on the configured default coin
-  (Monero) on restart.
+  - Search bar (fuzzy match, scrollable results) to switch to any coin or stock; the bar widget follows
+  - **Set as default** star button to choose which asset the widget starts on
+  - Button to open the asset on Kraken (coins) or Yahoo Finance (stocks)
+- Timeframe, currency and asset switches are runtime-only and reset on restart. Only the saved default persists.
 
 ## Install
-
-Clone this repo as a plugin source, or drop it straight into Noctalia's local plugins directory for development:
 
 ```sh
 # As a git source (stays in sync with `noctalia msg plugins update`)
@@ -39,23 +36,26 @@ Then add the bar widget to a bar, e.g. in `~/.config/noctalia/config.toml`:
 end = [ "…", "humblemane/hyprprice:price", "…" ]
 ```
 
+Requires Noctalia with plugin API level 24 or newer (v5.0.0-beta.9+) and `xdg-open` on your `PATH`.
+
 ## Plugin
 
 | Field | Value |
 | --- | --- |
 | ID | `humblemane/hyprprice` |
 | Entries | Bar widget: `price`; service: `service`; panel: `chart` |
+| Dependencies | `xdg-open` (opens the exchange link in your browser) |
 
 ## Settings
 
-Configure under **Settings → Plugins → HyprPrice** (or `~/.config/noctalia/config.toml` under `[plugin_settings."humblemane/hyprprice"]`):
+Configure under **Settings → Plugins → HyprPrice**:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `coin` | `string` | `monero` | Coin id (from `lib/coins.luau`) tracked on startup. |
-| `currency` | `select` | `usd` | Quote currency to price the coin against (`usd`, `eur`). Not every coin has an EUR pair on Kraken. |
+| `coin` | `string` | `monero` | Fallback asset id (see `lib/coins.luau`, e.g. `bitcoin`, `stock-aapl`) used when no default has been saved from the panel. |
+| `currency` | `select` | `usd` | Quote currency (`usd`, `eur`). Not every coin has a EUR pair on Kraken. |
 | `interval` | `int` | `30` | Refresh cadence in seconds (15-600). |
-| `show_change` | `bool` | `true` | Show the 24h percent change next to the price. |
+| `show_change` | `bool` | `true` | Show the percentage change next to the price. |
 
 ## IPC
 
@@ -63,31 +63,52 @@ Configure under **Settings → Plugins → HyprPrice** (or `~/.config/noctalia/c
 # Force an immediate refresh
 noctalia msg plugin humblemane/hyprprice:service all refresh
 
-# Switch the tracked coin at runtime (id must exist in lib/coins.luau)
+# Switch the tracked asset at runtime (id from lib/coins.luau)
 noctalia msg plugin humblemane/hyprprice:service all set_coin bitcoin
+noctalia msg plugin humblemane/hyprprice:service all set_coin stock-nvda
 
-# Change the chart timeframe (24h, 7d, 30d)
+# Save an asset as the default
+noctalia msg plugin humblemane/hyprprice:service all set_default stock-aapl
+
+# Change the timeframe (24h, 7d, 30d) or currency (usd, eur)
 noctalia msg plugin humblemane/hyprprice:service all set_range 7d
+noctalia msg plugin humblemane/hyprprice:service all set_currency eur
 
 # Toggle the chart panel
 noctalia msg panel-toggle humblemane/hyprprice:chart
 ```
 
-## Adding coins
+## What it touches
 
-Kraken doesn't trade every coin, and its pair symbols don't always match the common ticker (Bitcoin is `XBT`, for
-example). `lib/coins.luau` is a flat, hand-verified list — to add a coin, confirm it resolves first:
+- **Network** (read-only, no accounts or keys):
+  - `api.kraken.com`: coin ticker and OHLC candles, plus the EUR/USD rate for stocks in EUR
+  - `query1.finance.yahoo.com`: stock prices and history (an unofficial endpoint that may rate-limit or change)
+- **Filesystem**: writes one small file, `default.json`, in the plugin's own data directory (the saved default).
+- **Processes**: `xdg-open` to open the exchange page, and `noctalia msg …` so the panel can send commands to the
+  background service.
+
+## Adding assets
+
+`lib/coins.luau` is a flat, hand-verified list. For a coin, confirm Kraken resolves the pair first:
 
 ```sh
 curl -s "https://api.kraken.com/0/public/Ticker?pair=<BASE>USD"
 ```
 
-then add an entry with `id` (any stable internal slug), `symbol`, `name`, a `color`, and the verified `base`, then drop a `<symbol>.png` logo into `assets/logos/`.
+For a stock, confirm the Yahoo ticker returns data:
+
+```sh
+curl -s -A "Mozilla/5.0" "https://query1.finance.yahoo.com/v8/finance/chart/<TICKER>?range=1d&interval=5m"
+```
+
+Then add an entry (`id`, `symbol`, `name`, `base`, `color`, plus `kind = "stock"` for stocks) and drop a
+`<symbol lowercase>.png` logo into `assets/logos/`.
 
 ## Credits
 
 Coin logos in `assets/logos/` come from the CC0 [cryptocurrency-icons](https://github.com/spothq/cryptocurrency-icons)
-set and CoinCap's icon CDN; the Solana logo is redrawn in purple. All logos are trademarks of their respective projects.
+set and CoinCap's icon CDN (the Solana logo is redrawn in purple). Stock logos come from Financial Modeling Prep's
+image service. All logos are trademarks of their respective owners and are used only to identify the assets.
 
 ## License
 

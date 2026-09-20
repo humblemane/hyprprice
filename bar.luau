@@ -31,6 +31,7 @@ end
 
 local function render()
   local label
+  local changeLabel, changeColor
   if price == nil then
     label = hasError and "--" or "…"
     barWidget.setTooltip(hasError and "Price unavailable" or "Fetching price…")
@@ -38,15 +39,22 @@ local function render()
     label = formatPrice(price, currency)
     if showChange and change ~= nil then
       local arrow = change >= 0 and "▲" or "▼"
-      label = string.format("%s  %s%.1f%%", label, arrow, math.abs(change))
+      changeLabel = string.format("%s%.1f%%", arrow, math.abs(change))
+      changeColor = change >= 0 and "#3DDC84" or "#FF5252"
     end
     barWidget.setTooltip(`{coinSymbol} · click for chart`)
   end
 
-  local children = {
-    ui.image({ path = coinLogo, width = 18, height = 18, fit = "contain" }),
-    ui.label({ text = label }),
-  }
+  local children = {}
+  if coinLogo ~= "" then
+    children[#children + 1] = ui.image({ path = coinLogo, width = 18, height = 18, fit = "contain" })
+  else
+    label = `{coinSymbol} {label}`
+  end
+  children[#children + 1] = ui.label({ text = label })
+  if changeLabel then
+    children[#children + 1] = ui.label({ text = changeLabel, color = changeColor })
+  end
 
   barWidget.render(ui.row({ gap = 6, align = "center" }, children))
 end

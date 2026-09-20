@@ -2,14 +2,14 @@
 
 id = "humblemane/hyprprice"
 name = "HyprPrice"
-version = "1.0.0"
-plugin_api = 9
+version = "1.1.0"
+plugin_api = 24
 author = "humblemane"
 license = "MIT"
-dependencies = []
-tags = ["crypto", "finance", "indicator"]
+dependencies = ["xdg-open"]
+tags = ["crypto", "stocks", "finance", "indicator", "panel", "bar"]
 icon = "coin-monero-filled"
-description = "Live crypto price in the bar (Monero by default), with a 24h chart and a coin switcher. Polled from Kraken's public API."
+description = "Live crypto and stock prices in the bar (Monero by default), with a chart panel, logos and a search-and-switch bar. Crypto from Kraken, stocks from Yahoo Finance."
 
 [[setting]]
 key = "currency"
@@ -65,7 +65,7 @@ entry = "service.luau"
 id = "chart"
 entry = "chart.luau"
 width = 360
-height = 515
+height = 600
 placement = "attached"
 position = "auto"
 open_near_click = true
