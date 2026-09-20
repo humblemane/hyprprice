@@ -106,7 +106,7 @@ local function render()
   local changeColor = "on_surface_variant"
   local changeText = "—"
   if type(change) == "number" then
-    changeColor = change >= 0 and "success" or "error"
+    changeColor = change >= 0 and "#3DDC84" or "#FF5252"
     changeText = string.format("%s%.2f%% · %s", change >= 0 and "▲ " or "▼ ", math.abs(change), range)
   end
 
@@ -166,7 +166,7 @@ local function render()
         color = "on_surface",
       }),
       ui.label({ text = changeText, color = changeColor }),
-      ui.label({ text = agoText(), color = hasError and "error" or "on_surface_variant", fontSize = 12 }),
+      ui.label({ text = agoText(), color = hasError and "#FF5252" or "on_surface_variant", fontSize = 12 }),
     }),
 
     ui.graph({

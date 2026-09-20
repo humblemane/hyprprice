@@ -9,6 +9,8 @@ Monero by default, 33 coins and 52 stocks to switch between. Built for Hyprland.
 
 ![HyprPrice in the Noctalia bar](docs/bar.png)
 
+<p align="center"><img src="docs/panel.png" alt="The HyprPrice chart panel" width="360"></p>
+
 ## Features
 
 - **In the bar**: the asset's logo (or ticker), its price, and a green/red ▲/▼ percentage change.

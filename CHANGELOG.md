@@ -2,6 +2,11 @@
 
 All notable changes to HyprPrice. This project follows [Semantic Versioning](https://semver.org).
 
+## 1.3.1
+
+- The panel's change percentage now uses the same green/red as the bar (it was following the theme's accent).
+- Added a panel screenshot to the README and a `thumbnail.webp` for the plugin store.
+
 ## 1.3.0
 
 - Polished the project: rewritten README with screenshots, `CONTRIBUTING.md`, this changelog, issue templates, and an
