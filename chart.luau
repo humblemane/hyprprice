@@ -13,7 +13,7 @@ local CURRENCY_SYMBOLS = {
 local coinId = noctalia.state.get("coinId") or "monero"
 local coinSymbol = noctalia.state.get("coinSymbol") or "XMR"
 local coinName = noctalia.state.get("coinName") or "Monero"
-local coinGlyph = noctalia.state.get("coinGlyph") or "coin-monero-filled"
+local coinLogo = noctalia.state.get("coinLogo") or "assets/logos/xmr.png"
 local coinColor = noctalia.state.get("coinColor") or "primary"
 local currency = noctalia.state.get("currency") or "usd"
 local price = noctalia.state.get("price")
@@ -136,7 +136,7 @@ local function render()
   panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
     ui.row({ align = "center", justify = "space_between", gap = 8 }, {
       ui.row({ align = "center", gap = 8 }, {
-        ui.glyph({ name = coinGlyph ~= "" and coinGlyph or "coin", size = 20, color = coinColor }),
+        ui.image({ path = coinLogo, width = 24, height = 24, fit = "contain" }),
         ui.label({ text = coinName, fontSize = 16, fontWeight = "bold", color = "on_surface" }),
       }),
       ui.row({ gap = 4 }, {
@@ -215,8 +215,8 @@ noctalia.state.watch("coinColor", function(value)
   render()
 end)
 
-noctalia.state.watch("coinGlyph", function(value)
-  coinGlyph = value
+noctalia.state.watch("coinLogo", function(value)
+  coinLogo = value
   render()
 end)
 

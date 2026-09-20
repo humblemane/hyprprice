@@ -17,8 +17,7 @@ local change = noctalia.state.get("change")
 local currency = noctalia.state.get("currency") or "usd"
 local hasError = noctalia.state.get("error") or false
 local coinSymbol = noctalia.state.get("coinSymbol") or "XMR"
-local coinGlyph = noctalia.state.get("coinGlyph") or "coin-monero-filled"
-local coinColor = noctalia.state.get("coinColor") or "primary"
+local coinLogo = noctalia.state.get("coinLogo") or "assets/logos/xmr.png"
 
 local function formatPrice(value: number, cur: string): string
   local symbol = CURRENCY_SYMBOLS[cur] or (string.upper(cur) .. " ")
@@ -44,14 +43,10 @@ local function render()
     barWidget.setTooltip(`{coinSymbol} · click for chart`)
   end
 
-  -- Tabler has icons for only a few coins; the rest show their ticker instead.
-  local children = {}
-  if coinGlyph ~= "" then
-    children[#children + 1] = ui.glyph({ name = coinGlyph, color = coinColor })
-  else
-    label = `{coinSymbol} {label}`
-  end
-  children[#children + 1] = ui.label({ text = label })
+  local children = {
+    ui.image({ path = coinLogo, width = 18, height = 18, fit = "contain" }),
+    ui.label({ text = label }),
+  }
 
   barWidget.render(ui.row({ gap = 6, align = "center" }, children))
 end
@@ -83,13 +78,8 @@ noctalia.state.watch("coinSymbol", function(value)
   render()
 end)
 
-noctalia.state.watch("coinColor", function(value)
-  coinColor = value
-  render()
-end)
-
-noctalia.state.watch("coinGlyph", function(value)
-  coinGlyph = value
+noctalia.state.watch("coinLogo", function(value)
+  coinLogo = value
   render()
 end)
 

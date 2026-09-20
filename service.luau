@@ -45,6 +45,7 @@ local function publishCoinMeta()
   noctalia.state.set("coinSymbol", coin.symbol)
   noctalia.state.set("coinName", coin.name)
   noctalia.state.set("coinGlyph", coin.glyph)
+  noctalia.state.set("coinLogo", "assets/logos/" .. string.lower(coin.symbol) .. ".png")
   noctalia.state.set("coinColor", coin.color or "primary")
 end
 

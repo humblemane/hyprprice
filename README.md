@@ -15,10 +15,12 @@ turned out to be fully reachable and has real ticker + OHLC candle data, so that
 
 ## Features
 
-- **Bar widget**: current price and % change, with a brand-colored coin icon (or the ticker for coins without an icon).
+- **Bar widget**: current price and % change with the coin's logo.
 - **Click for a dropdown chart panel**:
   - Sparkline built from Kraken OHLC candles, with a 24h / 7d / 30d timeframe toggle (resets to 24h on restart)
   - Hover the chart to see the price at that point
+  - "Updated Ns ago" line that turns red if a poll fails
+  - USD / EUR toggle button
   - Refresh button to poll immediately
   - Search bar (fuzzy match) to switch to any coin in the curated list — updates the bar widget too
   - "Open on Kraken" button for the active coin's trade page
@@ -90,6 +92,11 @@ curl -s "https://api.kraken.com/0/public/Ticker?pair=<BASE>USD"
 ```
 
 then add an entry with `id` (any stable internal slug), `symbol`, `name`, a Tabler `glyph`, and the verified `base`.
+
+## Credits
+
+Coin logos in `assets/logos/` come from the CC0 [cryptocurrency-icons](https://github.com/spothq/cryptocurrency-icons)
+set and CoinCap's icon CDN; the Solana logo is redrawn in purple. All logos are trademarks of their respective projects.
 
 ## License
 
