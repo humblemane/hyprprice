@@ -2,6 +2,11 @@
 
 All notable changes to HyprPrice. This project follows [Semantic Versioning](https://semver.org).
 
+## 1.3.2
+
+- Manifest and README brought in line with the Noctalia community store rules: allowed tags, a description under 120
+  characters, and the store's README structure.
+
 ## 1.3.1
 
 - The panel's change percentage now uses the same green/red as the bar (it was following the theme's accent).

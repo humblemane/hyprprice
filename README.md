@@ -1,15 +1,15 @@
 # HyprPrice
 
-**Live crypto and stock prices in your [Noctalia](https://noctalia.dev) bar, with a chart on click.**
-Monero by default, 33 coins and 52 stocks to switch between. Built for Hyprland.
+Live crypto and stock prices in your [Noctalia](https://noctalia.dev) bar, with a chart on click. Monero by default,
+33 coins and 52 stocks to switch between. Built for Hyprland.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/humblemane/hyprprice/blob/main/LICENSE)
 [![Noctalia plugin API](https://img.shields.io/badge/noctalia%20plugin%20API-24%2B-8A7CFF.svg)](https://docs.noctalia.dev)
 [![Made for Hyprland](https://img.shields.io/badge/made%20for-Hyprland-58E1FF.svg)](https://hyprland.org)
 
-![HyprPrice in the Noctalia bar](docs/bar.png)
+![HyprPrice in the Noctalia bar](https://raw.githubusercontent.com/humblemane/hyprprice/main/docs/bar.png)
 
-<p align="center"><img src="docs/panel.png" alt="The HyprPrice chart panel" width="360"></p>
+![The HyprPrice chart panel](https://raw.githubusercontent.com/humblemane/hyprprice/main/docs/panel.png)
 
 ## Features
 
@@ -24,55 +24,59 @@ Monero by default, 33 coins and 52 stocks to switch between. Built for Hyprland.
 - **No accounts, no API keys.** Crypto comes from Kraken's public API, stocks from Yahoo Finance.
 - Lightweight: one background service polls once per interval (30s by default), shared by every bar and monitor.
 
+## Plugin
+
+| Field | Value |
+| --- | --- |
+| ID | `humblemane/hyprprice` |
+| Entries | Bar widget: `price`; panel: `chart`; service: `service` |
+
 ## Requirements
 
 - [Noctalia](https://noctalia.dev) v5.0.0-beta.9 or newer (plugin API level 24+)
-- Hyprland (or any compositor Noctalia supports)
-- `xdg-open` on your `PATH` (opens the exchange link)
+- `xdg-open` on your `PATH` (opens the exchange link in your browser)
 
-## Install
+## Usage
+
+### Install
 
 ```sh
-# As a git source: stays up to date with `noctalia msg plugins update`
+# From the plugin store or, as a git source that stays up to date with `noctalia msg plugins update`:
 noctalia msg plugins source add hyprprice git https://github.com/humblemane/hyprprice
-noctalia msg plugins enable humblemane/hyprprice
-```
-
-Or clone it into your local plugins directory:
-
-```sh
-git clone https://github.com/humblemane/hyprprice ~/.local/share/noctalia/plugins/hyprprice
 noctalia msg plugins enable humblemane/hyprprice
 ```
 
 ### Add it to your bar
 
-In **Settings → Bar**, add the **HyprPrice** widget, or edit `~/.config/noctalia/config.toml`:
+In **Settings → Bar**, add the **HyprPrice** widget (`humblemane/hyprprice:price`), or edit
+`~/.config/noctalia/config.toml`:
 
 ```toml
 [bar.default]
 end = [ "…", "humblemane/hyprprice:price", "…" ]
 ```
 
-### Optional: a Hyprland keybind for the panel
+### Open the panel
 
-`hyprland.conf`:
+Click the bar widget, or run:
+
+```sh
+noctalia msg panel-toggle humblemane/hyprprice:chart
+```
+
+To bind it to a key in Hyprland, in `hyprland.conf`:
 
 ```ini
 bind = SUPER, P, exec, noctalia msg panel-toggle humblemane/hyprprice:chart
 ```
 
-Lua config (`hyprland.lua`):
+or in a Lua config:
 
 ```lua
 hl.bind(mainMod .. " + P", hl.dsp.exec_cmd("noctalia msg panel-toggle humblemane/hyprprice:chart"))
 ```
 
-Pick any free key. Clicking the bar widget also toggles the panel.
-
-## Usage
-
-Click the widget to open the panel, then:
+### In the panel
 
 | Want to… | Do this |
 | --- | --- |
@@ -84,16 +88,16 @@ Click the widget to open the panel, then:
 
 Timeframe, currency and asset switches last until Noctalia restarts. The saved default persists.
 
-## Configuration
+## Settings
 
 **Settings → Plugins → HyprPrice**:
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
-| `coin` | string | `monero` | Fallback asset id (see `lib/coins.luau`, e.g. `bitcoin`, `stock-aapl`) used until you save a default from the panel |
-| `currency` | select | `usd` | Quote currency: `usd` or `eur`. Not every coin has a EUR pair on Kraken |
-| `interval` | int | `30` | Refresh cadence in seconds (15–600) |
-| `show_change` | bool | `true` | Show the percentage change next to the price |
+| `coin` | `string` | `monero` | Fallback asset id (see `lib/coins.luau`, e.g. `bitcoin`, `stock-aapl`) used until you save a default from the panel |
+| `currency` | `select` | `usd` | Quote currency: `usd` or `eur`. Not every coin has a EUR pair on Kraken |
+| `interval` | `int` | `30` | Refresh cadence in seconds (15–600) |
+| `show_change` | `bool` | `true` | Show the percentage change next to the price |
 
 ## IPC
 
@@ -105,10 +109,9 @@ noctalia msg plugin humblemane/hyprprice:service all set_coin bitcoin        # o
 noctalia msg plugin humblemane/hyprprice:service all set_default stock-aapl  # save as default
 noctalia msg plugin humblemane/hyprprice:service all set_range 7d            # 24h | 7d | 30d
 noctalia msg plugin humblemane/hyprprice:service all set_currency eur        # usd | eur
-noctalia msg panel-toggle humblemane/hyprprice:chart
 ```
 
-## What it touches
+## Notes
 
 The plugin is trusted, unsandboxed code, so here is everything it does:
 
@@ -119,7 +122,7 @@ The plugin is trusted, unsandboxed code, so here is everything it does:
 - **Processes**: `xdg-open` to open the exchange page, and `noctalia msg …` so the panel can command the background
   service.
 
-## Troubleshooting
+Troubleshooting:
 
 | Symptom | What to check |
 | --- | --- |
@@ -129,22 +132,17 @@ The plugin is trusted, unsandboxed code, so here is everything it does:
 | No logo | Not every asset has an open-licensed logo; those show their ticker |
 | Plugin won't enable | Needs Noctalia beta.9+ (plugin API 24) and `xdg-open` |
 
-## Contributing
+Contributing: see [CONTRIBUTING.md](https://github.com/humblemane/hyprprice/blob/main/CONTRIBUTING.md). Release notes:
+[CHANGELOG.md](https://github.com/humblemane/hyprprice/blob/main/CHANGELOG.md).
 
-Bug reports, new assets and fixes are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Release notes are in
-[CHANGELOG.md](CHANGELOG.md).
-
-## Credits
-
-Prices from [Kraken](https://docs.kraken.com/api/) and Yahoo Finance. Logos in `assets/logos/` come from
+Credits: prices from [Kraken](https://docs.kraken.com/api/) and Yahoo Finance. Logos in `assets/logos/` come from
 open-licensed sets: [cryptocurrency-icons](https://github.com/spothq/cryptocurrency-icons) (CC0),
 [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0) and
-[Trust Wallet assets](https://github.com/trustwallet/assets) (MIT). See
-[assets/logos/SOURCES.md](assets/logos/SOURCES.md) for every file's source. Logos are trademarks of their owners and are
-used only to identify the asset.
+[Trust Wallet assets](https://github.com/trustwallet/assets) (MIT); see `assets/logos/SOURCES.md` for every file's
+source. Logos are trademarks of their owners and are used only to identify the asset. HyprPrice is not affiliated with
+Kraken, Yahoo, or any listed company, and prices are informational, not financial advice.
 
 ## License
 
-The code is MIT-licensed (see [LICENSE](LICENSE)). Logos keep their own licenses, listed in `assets/logos/SOURCES.md`.
-
-HyprPrice is not affiliated with Kraken, Yahoo, or any listed company. Prices are informational, not financial advice.
+The code is MIT-licensed (see [LICENSE](https://github.com/humblemane/hyprprice/blob/main/LICENSE)). Logos keep their
+own licenses, listed in `assets/logos/SOURCES.md`.
