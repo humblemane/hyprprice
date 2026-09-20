@@ -2,16 +2,7 @@
 
 A live cryptocurrency price widget for the [Noctalia](https://noctalia.dev) shell (Hyprland/Quickshell). Shows a
 coin's price and 24h change right in the bar, defaulting to Monero (XMR), with a dropdown chart panel for a 24h
-sparkline and switching coins.
-
-## Why Kraken, not CoinGecko
-
-This started out calling CoinGecko's public API, but `api.coingecko.com`'s HTTPS endpoint turned out to be silently
-blackholed for Noctalia's HTTP client specifically — every request timed out at exactly 30s with 0 bytes received,
-while plain HTTP to the same host, and HTTPS to other hosts (GitHub, Kraken, Coinbase, Binance), all worked fine. That
-pattern (TLS connects but nothing ever comes back) is consistent with a Cloudflare-level block on the client's TLS
-fingerprint rather than anything fixable with headers or retries. [Kraken's public API](https://docs.kraken.com/api/)
-turned out to be fully reachable and has real ticker + OHLC candle data, so that's what this plugin uses.
+sparkline and switching coins. Prices come from [Kraken's public API](https://docs.kraken.com/api/).
 
 ## Features
 
@@ -91,7 +82,7 @@ example). `lib/coins.luau` is a flat, hand-verified list — to add a coin, conf
 curl -s "https://api.kraken.com/0/public/Ticker?pair=<BASE>USD"
 ```
 
-then add an entry with `id` (any stable internal slug), `symbol`, `name`, a Tabler `glyph`, and the verified `base`.
+then add an entry with `id` (any stable internal slug), `symbol`, `name`, a `color`, and the verified `base`, then drop a `<symbol>.png` logo into `assets/logos/`.
 
 ## Credits
 
