@@ -29,14 +29,23 @@ local coinId = noctalia.getConfig("coin") or "monero"
 local REQUEST_HEADERS = { "Accept: application/json", "User-Agent: noctalia-monero-widget/1.0" }
 local MAX_HISTORY_POINTS = 60
 
+-- Kraken OHLC intervals (minutes) are fixed: 1, 5, 15, 30, 60, 240, 1440, ...
+local RANGES = {
+  ["24h"] = { interval = 30, seconds = 86400 },
+  ["7d"] = { interval = 240, seconds = 604800 },
+  ["30d"] = { interval = 240, seconds = 2592000 },
+}
+local range = "24h"
+
 local lastPrice = nil
 
 local function publishCoinMeta()
-  local coin = findCoin(coinId) or { id = coinId, symbol = string.upper(coinId), name = coinId, glyph = "coin-filled" }
+  local coin = findCoin(coinId) or { id = coinId, symbol = string.upper(coinId), name = coinId, glyph = "" }
   noctalia.state.set("coinId", coin.id)
   noctalia.state.set("coinSymbol", coin.symbol)
   noctalia.state.set("coinName", coin.name)
   noctalia.state.set("coinGlyph", coin.glyph)
+  noctalia.state.set("coinColor", coin.color or "primary")
 end
 
 -- Kraken's ticker keys don't match the requested pair string (legacy X/Z
@@ -61,12 +70,13 @@ local function fetchPrice()
   end
 
   local requestCoin = coinId
+  local requestCurrency = currency
   local pair = krakenPair(coin)
   local url = "https://api.kraken.com/0/public/Ticker?pair=" .. noctalia.string.urlEncode(pair)
 
   noctalia.http({ url = url, headers = REQUEST_HEADERS }, function(res)
-    if requestCoin ~= coinId then
-      return -- superseded by a newer coin switch
+    if requestCoin ~= coinId or requestCurrency ~= currency then
+      return -- superseded by a newer coin or currency switch
     end
 
     if not res.ok then
@@ -93,8 +103,9 @@ local function fetchPrice()
 
     lastPrice = price
     noctalia.state.set("error", false)
-    noctalia.state.set("currency", currency)
+    noctalia.state.set("currency", requestCurrency)
     noctalia.state.set("price", price)
+    noctalia.state.set("updatedAt", os.time())
   end)
 end
 
@@ -105,16 +116,18 @@ local function fetchHistory()
   end
 
   local requestCoin = coinId
+  local requestRange = range
+  local requestCurrency = currency
   local pair = krakenPair(coin)
-  local since = os.time() - 86400
+  local since = os.time() - RANGES[requestRange].seconds
   local url = "https://api.kraken.com/0/public/OHLC?pair="
     .. noctalia.string.urlEncode(pair)
-    .. "&interval=30&since="
+    .. "&interval=" .. tostring(RANGES[requestRange].interval) .. "&since="
     .. tostring(since)
 
   noctalia.http({ url = url, headers = REQUEST_HEADERS }, function(res)
-    if requestCoin ~= coinId then
-      return -- superseded by a newer coin switch
+    if requestCoin ~= coinId or requestRange ~= range or requestCurrency ~= currency then
+      return -- superseded by a newer coin or range switch
     end
 
     if not res.ok then
@@ -143,10 +156,13 @@ local function fetchHistory()
       return
     end
 
-    local start = math.max(1, #candles - MAX_HISTORY_POINTS + 1)
+    local step = math.max(1, math.ceil(#candles / MAX_HISTORY_POINTS))
     local raw = {}
-    for i = start, #candles do
+    for i = #candles, 1, -step do
       raw[#raw + 1] = tonumber(candles[i][5]) -- close price
+    end
+    for i = 1, math.floor(#raw / 2) do
+      raw[i], raw[#raw - i + 1] = raw[#raw - i + 1], raw[i]
     end
 
     local lo, hi = raw[1], raw[1]
@@ -176,6 +192,7 @@ end
 
 local function fetchAll()
   publishCoinMeta()
+  noctalia.state.set("range", range)
   fetchPrice()
   fetchHistory()
 end
@@ -198,6 +215,14 @@ end
 function onIpc(event, payload)
   if event == "refresh" then
     fetchAll()
+  elseif event == "set_currency" and (payload == "usd" or payload == "eur") then
+    currency = payload
+    lastPrice = nil
+    fetchAll()
+  elseif event == "set_range" and RANGES[payload] then
+    range = payload
+    noctalia.state.set("range", range)
+    fetchHistory()
   elseif event == "set_coin" and payload and payload ~= "" then
     coinId = payload
     fetchAll()

@@ -15,9 +15,9 @@ turned out to be fully reachable and has real ticker + OHLC candle data, so that
 
 ## Features
 
-- **Bar widget**: current price and 24h % change, with a coin-specific icon.
+- **Bar widget**: current price and % change, with a brand-colored coin icon (or the ticker for coins without an icon).
 - **Click for a dropdown chart panel**:
-  - 24h sparkline built from Kraken OHLC candles (30-minute buckets)
+  - Sparkline built from Kraken OHLC candles, with a 24h / 7d / 30d timeframe toggle (resets to 24h on restart)
   - Hover the chart to see the price at that point
   - Refresh button to poll immediately
   - Search bar (fuzzy match) to switch to any coin in the curated list — updates the bar widget too
@@ -72,6 +72,9 @@ noctalia msg plugin humblemane/hyprprice:service all refresh
 
 # Switch the tracked coin at runtime (id must exist in lib/coins.luau)
 noctalia msg plugin humblemane/hyprprice:service all set_coin bitcoin
+
+# Change the chart timeframe (24h, 7d, 30d)
+noctalia msg plugin humblemane/hyprprice:service all set_range 7d
 
 # Toggle the chart panel
 noctalia msg panel-toggle humblemane/hyprprice:chart

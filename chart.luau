@@ -14,12 +14,17 @@ local coinId = noctalia.state.get("coinId") or "monero"
 local coinSymbol = noctalia.state.get("coinSymbol") or "XMR"
 local coinName = noctalia.state.get("coinName") or "Monero"
 local coinGlyph = noctalia.state.get("coinGlyph") or "coin-monero-filled"
+local coinColor = noctalia.state.get("coinColor") or "primary"
 local currency = noctalia.state.get("currency") or "usd"
 local price = noctalia.state.get("price")
 local change = noctalia.state.get("change")
 local history = noctalia.state.get("history") or {}
 local historyPrices = noctalia.state.get("historyPrices") or {}
 local hoverText = nil
+local updatedAt = noctalia.state.get("updatedAt")
+local hasError = noctalia.state.get("error") or false
+local range = noctalia.state.get("range") or "24h"
+local RANGE_OPTIONS = { "24h", "7d", "30d" }
 
 local searchQuery = ""
 local searchResults = {}
@@ -75,12 +80,28 @@ local function selectCoin(id: string)
   noctalia.runAsync({ "noctalia", "msg", "plugin", "humblemane/hyprprice:service", "all", "set_coin", id })
 end
 
+local function agoText()
+  if updatedAt == nil then
+    return "Waiting for first update…"
+  end
+  local secs = math.max(0, os.time() - updatedAt)
+  local ago
+  if secs < 60 then
+    ago = `{secs}s ago`
+  elseif secs < 3600 then
+    ago = `{math.floor(secs / 60)}m ago`
+  else
+    ago = `{math.floor(secs / 3600)}h ago`
+  end
+  return hasError and `Update failed · last price {ago}` or `Updated {ago}`
+end
+
 local function render()
   local changeColor = "on_surface_variant"
   local changeText = "—"
   if change ~= nil then
     changeColor = change >= 0 and "success" or "error"
-    changeText = string.format("%s%.2f%% · 24h", change >= 0 and "▲ " or "▼ ", math.abs(change))
+    changeText = string.format("%s%.2f%% · %s", change >= 0 and "▲ " or "▼ ", math.abs(change), range)
   end
 
   local resultRows = {}
@@ -98,13 +119,33 @@ local function render()
     })
   end
 
+  local rangeButtons = {}
+  for _, r in ipairs(RANGE_OPTIONS) do
+    rangeButtons[#rangeButtons + 1] = ui.button({
+      key = `range-{r}`,
+      text = r,
+      variant = "ghost",
+      controlSize = "sm",
+      selected = r == range,
+      onClick = function()
+        noctalia.runAsync({ "noctalia", "msg", "plugin", "humblemane/hyprprice:service", "all", "set_range", r })
+      end,
+    })
+  end
+
   panel.render(ui.column({ flexGrow = 1, gap = 12 }, {
     ui.row({ align = "center", justify = "space_between", gap = 8 }, {
       ui.row({ align = "center", gap = 8 }, {
-        ui.glyph({ name = coinGlyph, size = 20 }),
+        ui.glyph({ name = coinGlyph ~= "" and coinGlyph or "coin", size = 20, color = coinColor }),
         ui.label({ text = coinName, fontSize = 16, fontWeight = "bold", color = "on_surface" }),
       }),
       ui.row({ gap = 4 }, {
+        ui.button({
+          text = string.upper(currency),
+          tooltip = "Switch USD / EUR",
+          variant = "ghost",
+          onClick = "onCurrencyClicked",
+        }),
         ui.button({ glyph = "refresh", tooltip = "Refresh now", variant = "ghost", onClick = "onRefreshClicked" }),
         ui.button({ glyph = "close", onClick = "onCloseClicked" }),
       }),
@@ -118,11 +159,12 @@ local function render()
         color = "on_surface",
       }),
       ui.label({ text = changeText, color = changeColor }),
+      ui.label({ text = agoText(), color = hasError and "error" or "on_surface_variant", fontSize = 12 }),
     }),
 
     ui.graph({
       values = history,
-      color = "primary",
+      color = coinColor,
       lineWidth = 2,
       fillOpacity = 0.15,
       height = 90,
@@ -130,8 +172,10 @@ local function render()
       onPointerLeave = "onGraphLeave",
     }),
 
+    ui.row({ gap = 4 }, rangeButtons),
+
     ui.label({
-      text = hoverText or "Last 24h · hover the chart to inspect",
+      text = hoverText or `Last {range} · hover the chart to inspect`,
       color = "on_surface_variant",
       fontSize = 12,
     }),
@@ -166,6 +210,11 @@ noctalia.state.watch("coinName", function(value)
   render()
 end)
 
+noctalia.state.watch("coinColor", function(value)
+  coinColor = value
+  render()
+end)
+
 noctalia.state.watch("coinGlyph", function(value)
   coinGlyph = value
   render()
@@ -186,6 +235,21 @@ noctalia.state.watch("currency", function(value)
   render()
 end)
 
+noctalia.state.watch("range", function(value)
+  range = value
+  render()
+end)
+
+noctalia.state.watch("updatedAt", function(value)
+  updatedAt = value
+  render()
+end)
+
+noctalia.state.watch("error", function(value)
+  hasError = value
+  render()
+end)
+
 noctalia.state.watch("history", function(value)
   history = value
   render()
@@ -196,7 +260,17 @@ noctalia.state.watch("historyPrices", function(value)
 end)
 
 function onOpen(_context)
+  panel.setWantsSecondTicks(true)
   render()
+end
+
+function update()
+  render()
+end
+
+function onCurrencyClicked()
+  local target = currency == "usd" and "eur" or "usd"
+  noctalia.runAsync({ "noctalia", "msg", "plugin", "humblemane/hyprprice:service", "all", "set_currency", target })
 end
 
 function onSearchChanged(value)

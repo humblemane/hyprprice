@@ -18,6 +18,7 @@ local currency = noctalia.state.get("currency") or "usd"
 local hasError = noctalia.state.get("error") or false
 local coinSymbol = noctalia.state.get("coinSymbol") or "XMR"
 local coinGlyph = noctalia.state.get("coinGlyph") or "coin-monero-filled"
+local coinColor = noctalia.state.get("coinColor") or "primary"
 
 local function formatPrice(value: number, cur: string): string
   local symbol = CURRENCY_SYMBOLS[cur] or (string.upper(cur) .. " ")
@@ -30,22 +31,29 @@ local function formatPrice(value: number, cur: string): string
 end
 
 local function render()
-  barWidget.setGlyph(coinGlyph)
-
+  local label
   if price == nil then
-    barWidget.setText(hasError and `{coinSymbol} --` or `{coinSymbol} …`)
+    label = hasError and "--" or "…"
     barWidget.setTooltip(hasError and "Price unavailable" or "Fetching price…")
-    return
+  else
+    label = formatPrice(price, currency)
+    if showChange and change ~= nil then
+      local arrow = change >= 0 and "▲" or "▼"
+      label = string.format("%s  %s%.1f%%", label, arrow, math.abs(change))
+    end
+    barWidget.setTooltip(`{coinSymbol} · click for chart`)
   end
 
-  local text = formatPrice(price, currency)
-  if showChange and change ~= nil then
-    local arrow = change >= 0 and "▲" or "▼"
-    text = string.format("%s  %s%.1f%%", text, arrow, math.abs(change))
+  -- Tabler has icons for only a few coins; the rest show their ticker instead.
+  local children = {}
+  if coinGlyph ~= "" then
+    children[#children + 1] = ui.glyph({ name = coinGlyph, color = coinColor })
+  else
+    label = `{coinSymbol} {label}`
   end
+  children[#children + 1] = ui.label({ text = label })
 
-  barWidget.setText(text)
-  barWidget.setTooltip(`{coinSymbol} · click for chart`)
+  barWidget.render(ui.row({ gap = 6, align = "center" }, children))
 end
 
 render()
@@ -72,6 +80,11 @@ end)
 
 noctalia.state.watch("coinSymbol", function(value)
   coinSymbol = value
+  render()
+end)
+
+noctalia.state.watch("coinColor", function(value)
+  coinColor = value
   render()
 end)
 
